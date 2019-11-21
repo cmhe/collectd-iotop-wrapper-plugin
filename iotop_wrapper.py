@@ -154,19 +154,45 @@ def read(data):
     collectd.info("iotop-worker: read: start read")
     import Queue as queue
 
+    values = []
+
     q = data["queue"]
     try:
         while True:
-            item = q.get(block=False)
             collectd.info("iotop-worker: read: fetch element from queue")
-            vl = collectd.Values(
-                plugin="iotop_wrapper", time=item[0], type="bitrate"
-            )
-            vl.interval = data["interval"]
-            vl.dispatch(type_instance="actual_read", values=(item[1],))
-            vl.dispatch(type_instance="actual_write", values=(item[2],))
+            item = q.get(block=False)
+            values.append(item)
     except queue.Empty:
         pass
+
+    vl = collectd.Values(
+        plugin="iotop_wrapper", time=values[-1][0], type="bitrate"
+    )
+    vl.interval = data["interval"]
+
+    vl.dispatch(type_instance="actual_read", values=(values[-1][1],))
+    vl.dispatch(
+        type_instance="actual_read_min", values=(min(v[1] for v in values),)
+    )
+    vl.dispatch(
+        type_instance="actual_read_max", values=(max(v[1] for v in values),)
+    )
+    vl.dispatch(
+        type_instance="actual_read_avg",
+        values=(sum(float(v[1]) for v in values) / len(values),),
+    )
+
+    vl.dispatch(type_instance="actual_write", values=(values[-1][2],))
+    vl.dispatch(
+        type_instance="actual_write_min", values=(min(v[2] for v in values),)
+    )
+    vl.dispatch(
+        type_instance="actual_write_max", values=(max(v[2] for v in values),)
+    )
+    vl.dispatch(
+        type_instance="actual_write_avg",
+        values=(sum(float(v[2]) for v in values) / len(values),),
+    )
 
 
 collectd.register_config(config)
