@@ -95,13 +95,23 @@ def worker(close_event, queue, interval):
             queue.put((ts, actual_read, actual_write))
 
     finally:
-        collectd.notice("iotop-worker: worker exits")
+        queue.close()
         if proc and proc.returncode is None:
             try:
-                proc.terminate()
+                collectd.notice("iotop-worker: worker: iotop kill")
+                proc.kill()
+                collectd.notice("iotop-worker: worker: iotop communicate")
+                proc.communicate()
+                collectd.notice("iotop-worker: worker: iotop close stdout")
+                proc.stdout.close()
+                collectd.notice("iotop-worker: worker: iotop wait")
+                proc.wait()
+                if proc.returncode is None:
+                    proc.terminate()
             except OSError:
                 # ignore errors when terminating iotop, we have done our best
                 pass
+        collectd.notice("iotop-worker: worker exits")
 
 
 def config(config):
@@ -132,7 +142,7 @@ def init(data):
 def shutdown(data):
     collectd.notice("iotop-worker: shutdown: start shutdown")
     data["close_event"].set()
-    data["process"].join(timeout=30)
+    data["process"].join(timeout=data["interval"] + 1)
     if data["process"].is_alive():
         collectd.notice("iotop-worker: shutdown: worker needs terminating")
         data["process"].terminate()
