@@ -165,6 +165,9 @@ def read(data):
     except queue.Empty:
         pass
 
+    if not values:
+        return
+
     vl = collectd.Values(
         plugin="iotop_wrapper", time=values[-1][0], type="bitrate"
     )
